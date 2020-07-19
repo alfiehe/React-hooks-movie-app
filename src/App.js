@@ -1,67 +1,93 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import Header from './components/Header';
 import Movie from './components/Movie';
 import Search from './components/Search';
 import "./style.css";
 
-// 接口数据
+// 请求接口数据
 const MOVIE_API_URL = "https://www.omdbapi.com/?s=man&apikey=837cbd58";
 
-function App() {
-    // 电影数据，初始为空数组
-    const [movies, setMovies] = useState([]);
-    // 加载装态，初始为true
-    const [loading, setLoading] = useState(true);
-    // 错误消息，初始为null
-    const [errorMessage, setErrorMessage] = useState(null);
+// 初始化数据状态
+const defaultState = {
+    loading: true,
+    movies: [],
+    errorMessage: null
+}
 
-    const [keyWords, setKeyWords] = useState('');
+// reducer方法管理数据
+const reducer = (state, action) => {
+    switch (action.type) {
+        case 'SEARCH_MOVIES_REQUEST':
+            return {
+                ...state,
+                loading: true,
+                errorMessage: null
+            };
+        case 'SEARCH_MOVIES_SUCCESS':
+            return {
+                ...state,
+                loading: false,
+                movies: action.payload
+            };
+        case 'SEARCH_MOVIES_FAILURE':
+            return {
+                ...state,
+                loading: false,
+                errorMessage: action.error
+            };
+        default:
+            return state;
+    }
+}
+
+function App() {
+    // 声明useReducer
+    const [state, dispatch] = useReducer(reducer, defaultState);
 
     // 页面加载后，请求数据
     useEffect(() => {
         fetch(MOVIE_API_URL)
             .then(res => {
-                // console.log('======res', res);
-                return res.json(); // 返回的数据转换成JSON对象
+                return res.json();
             })
             .then(resjson => {
-                // console.log('======Search', resjson.Search);
-                setMovies(resjson.Search); //设置数据为获取到的Search数组
-                setLoading(false); //获取到数据成功，加载设为false
+                dispatch({
+                    type: 'SEARCH_MOVIES_SUCCESS',
+                    payload: resjson.Search
+                })
             });
     }, []);
 
-    // 搜索方法
-    const handleSearch = (value) => { //value参数是从子组件Search中input获取
-        console.log('onSearch', value);
-        setKeyWords(value);
-        setLoading(true); //搜索时设置加载状态true
-        // setErrorMessage(null); //清空错误消息
 
-        // 传参value请求数据
+    const handleSearch = (value) => {
+        dispatch({
+            type: 'SEARCH_MOVIES_REQUEST'
+        });
         fetch(`https://www.omdbapi.com/?s=${value}&apikey=837cbd58`)
             .then(res => {
-                // console.log('=====搜索结果', res);
                 return res.json()
             })
             .then(resJson => {
-                console.log('=======搜索返回的JSON', resJson.Response); //判断有数据成功吗
-                console.log('=======搜索返回的JSON错误', resJson.Error); //判断有数据成功吗
                 if (resJson.Response === 'True') {
-                    setMovies(resJson.Search);
-                    setLoading(false);
+                    dispatch({
+                        type: 'SEARCH_MOVIES_SUCCESS',
+                        payload: resJson.Search
+                    });
                 } else {
-                    setErrorMessage('哎呀，搜不到吧~~');
-                    setLoading(false);
+                    dispatch({
+                        type: 'SEARCH_MOVIES_FAILURE',
+                        error: resJson.Error
+                    });
                 }
             });
     }
+
+    const { loading, movies, errorMessage } = state;
 
     return (
         <div className="App">
             <Header text="电影" />
             <Search onSearch={handleSearch} />
-            <p>搜索<strong> {keyWords}</strong></p>
             <div className="movies">
                 {
                     loading && !errorMessage && <div className="loading">Loading</div>
